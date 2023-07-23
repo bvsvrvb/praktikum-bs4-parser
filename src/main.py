@@ -6,10 +6,10 @@ import requests_cache
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 
-from constants import BASE_DIR, MAIN_DOC_URL
+from constants import BASE_DIR, MAIN_DOC_URL, PEP_URL, EXPECTED_STATUS
 from configs import configure_argument_parser, configure_logging
 from outputs import control_output
-from utils import get_response, find_tag
+from utils import get_response, find_tag, unexpected_status
 
 
 def whats_new(session):
@@ -24,7 +24,7 @@ def whats_new(session):
     sections_by_python = div_with_ul.find_all('li',
                                               attrs={'class': 'toctree-l1'})
 
-    results = [('Ссылка на статью', 'Заголовок', 'Редактор, автор')]
+    results = [('Ссылка на статью', 'Заголовок', 'Редактор, Автор')]
     for section in tqdm(sections_by_python):
         version_a_tag = find_tag(section, 'a')
         href = version_a_tag['href']
@@ -100,10 +100,69 @@ def download(session):
     logging.info(f'Архив был загружен и сохранён: {archive_path}')
 
 
+def pep(session):
+    pep_count = {
+        'Active': 0,
+        'Accepted': 0,
+        'Deferred': 0,
+        'Final': 0,
+        'Provisional': 0,
+        'Rejected': 0,
+        'Superseded': 0,
+        'Withdrawn': 0,
+        'Draft': 0,
+    }
+
+    response = get_response(session, PEP_URL)
+    if response is None:
+        return
+    soup = BeautifulSoup(response.text, features='lxml')
+    num_index = find_tag(soup, 'section', {'id': 'numerical-index'})
+    rows = num_index.find_all('tr')
+
+    results = [('Статус', 'Количество')]
+    for row in tqdm(rows[1:]):
+        first_column_tag = find_tag(row, 'td')
+        preview_status = first_column_tag.text[1:]
+
+        a_tag = find_tag(row, 'a')
+        href = a_tag['href']
+        pep_link = urljoin(PEP_URL, href)
+
+        response = get_response(session, pep_link)
+        if response is None:
+            continue
+        soup = BeautifulSoup(response.text, features='lxml')
+        dl = find_tag(soup, 'dl')
+        dt_tags = dl.find_all('dt')
+        for dt in dt_tags:
+            if dt.text == 'Status:':
+                dt_status = dt
+                break
+        pep_status = dt_status.find_next_sibling('dd').string
+
+        if pep_status in EXPECTED_STATUS[preview_status]:
+            pep_count[pep_status] += 1
+        else:
+            if pep_status in pep_count.keys():
+                pep_count[pep_status] += 1
+            else:
+                pep_count[pep_status] = 1
+            unexpected_status(
+                pep_link, pep_status, EXPECTED_STATUS[preview_status])
+
+    for item in pep_count.items():
+        results.append(item)
+    results.append(('Total', len(rows[1:])))
+
+    return results
+
+
 MODE_TO_FUNCTION = {
     'whats-new': whats_new,
     'latest-versions': latest_versions,
     'download': download,
+    'pep': pep
 }
 
 
