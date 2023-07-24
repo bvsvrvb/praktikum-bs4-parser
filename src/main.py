@@ -101,17 +101,7 @@ def download(session):
 
 
 def pep(session):
-    pep_count = {
-        'Active': 0,
-        'Accepted': 0,
-        'Deferred': 0,
-        'Final': 0,
-        'Provisional': 0,
-        'Rejected': 0,
-        'Superseded': 0,
-        'Withdrawn': 0,
-        'Draft': 0,
-    }
+    pep_count = {}
 
     response = get_response(session, PEP_URL)
     if response is None:
@@ -141,13 +131,9 @@ def pep(session):
                 break
         pep_status = dt_status.find_next_sibling('dd').string
 
-        if pep_status in EXPECTED_STATUS[preview_status]:
-            pep_count[pep_status] += 1
-        else:
-            if pep_status in pep_count.keys():
-                pep_count[pep_status] += 1
-            else:
-                pep_count[pep_status] = 1
+        status_counter = pep_count.get(pep_status) or 0
+        pep_count[pep_status] = status_counter + 1
+        if pep_status not in EXPECTED_STATUS[preview_status]:
             unexpected_status(
                 pep_link, pep_status, EXPECTED_STATUS[preview_status])
 
