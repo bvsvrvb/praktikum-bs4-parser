@@ -19,10 +19,10 @@
 ## Запуск проекта
 Клонировать репозиторий и перейти в директорию проекта:
 ```bash
-git clone https://github.com/bvsvrvb/bs4_parser_pep.git
+git clone https://github.com/bvsvrvb/praktikum-bs4-parser.git
 ```
 ```bash
-cd bs4_parser_pep
+cd praktikum-bs4-parser
 ```
 Cоздать и активировать виртуальное окружение:
 ```bash
